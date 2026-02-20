@@ -17,6 +17,41 @@ app.get('/', (req, res) => {
   res.json({ status: 'ok', message: 'Iraq-Server Proxy Running' });
 });
 
+// Debug endpoint - echoes what would be sent to Iraq Server
+app.post('/api/debug', (req, res) => {
+  try {
+    const { username, apiaccesskey, action, ...params } = req.body;
+    const body = new URLSearchParams({
+      username: username || '',
+      apiaccesskey: apiaccesskey || '',
+      action: action || '',
+      ...params
+    });
+    const bodyStr = body.toString();
+
+    // Decode parameters if present
+    let decodedParams = null;
+    if (params.parameters) {
+      try {
+        decodedParams = Buffer.from(params.parameters, 'base64').toString();
+      } catch(e) {
+        decodedParams = 'decode error: ' + e.message;
+      }
+    }
+
+    res.json({
+      received_body: req.body,
+      param_keys: Object.keys(params),
+      url_encoded_body: bodyStr,
+      url_encoded_length: bodyStr.length,
+      decoded_parameters_xml: decodedParams,
+      parameters_raw: params.parameters || null
+    });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // Proxy endpoint - forwards all requests to Iraq-Server
 app.post('/api/proxy', async (req, res) => {
   try {
@@ -33,14 +68,15 @@ app.post('/api/proxy', async (req, res) => {
       ...params
     });
 
-    console.log(`[Proxy] Action: ${action}`);
+    const bodyStr = body.toString();
+    console.log(`[Proxy] Action: ${action}, params: ${Object.keys(params).join(',')}, bodyLen: ${bodyStr.length}`);
 
     const response = await fetch(IRAQ_SERVER_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
       },
-      body: body.toString()
+      body: bodyStr
     });
 
     const data = await response.json();
