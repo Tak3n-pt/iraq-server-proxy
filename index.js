@@ -52,6 +52,29 @@ app.post('/api/debug', (req, res) => {
   }
 });
 
+// Raw passthrough - forwards exact URL-encoded body to Iraq Server
+// Use this to test with zero encoding transformations
+app.post('/api/raw', express.raw({ type: '*/*' }), async (req, res) => {
+  try {
+    const rawBody = req.body.toString();
+    console.log(`[Raw Proxy] Forwarding ${rawBody.length} bytes`);
+
+    const response = await fetch(IRAQ_SERVER_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: rawBody
+    });
+
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error('[Raw Proxy] Error:', error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Proxy endpoint - forwards all requests to Iraq-Server
 app.post('/api/proxy', async (req, res) => {
   try {
