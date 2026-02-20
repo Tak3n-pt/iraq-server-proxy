@@ -76,6 +76,7 @@ app.post('/api/raw', express.raw({ type: '*/*' }), async (req, res) => {
 });
 
 // Proxy endpoint - forwards all requests to Iraq-Server
+// Uses multipart/form-data (like PHP cURL with array POSTFIELDS)
 app.post('/api/proxy', async (req, res) => {
   try {
     const { username, apiaccesskey, action, ...params } = req.body;
@@ -84,22 +85,20 @@ app.post('/api/proxy', async (req, res) => {
       return res.status(400).json({ error: 'Missing required fields: username, apiaccesskey, action' });
     }
 
-    const body = new URLSearchParams({
-      username,
-      apiaccesskey,
-      action,
-      ...params
-    });
+    // Use FormData (multipart/form-data) - matches how PHP DHRU class sends requests
+    const formData = new FormData();
+    formData.append('username', username);
+    formData.append('apiaccesskey', apiaccesskey);
+    formData.append('action', action);
+    for (const [key, value] of Object.entries(params)) {
+      formData.append(key, String(value));
+    }
 
-    const bodyStr = body.toString();
-    console.log(`[Proxy] Action: ${action}, params: ${Object.keys(params).join(',')}, bodyLen: ${bodyStr.length}`);
+    console.log(`[Proxy] Action: ${action}, params: ${Object.keys(params).join(',')}, format: multipart`);
 
     const response = await fetch(IRAQ_SERVER_URL, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: bodyStr
+      body: formData
     });
 
     const data = await response.json();
